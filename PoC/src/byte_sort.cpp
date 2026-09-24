@@ -3,6 +3,7 @@
 
 #include <algorithm>
 #include <fstream>
+#include <ios>
 
 void sortBytes(void* data, std::size_t size) {
     if (data == nullptr || size < 2) {
@@ -48,10 +49,20 @@ bool saveBytesToFile(
         return false;
     }
 
-    if (!byte_sort::detail::writeBytesToStream(data, size, output)) {
+    try {
+        output.exceptions(std::ios::failbit | std::ios::badbit);
+    } catch (const std::ios_base::failure&) {
         return false;
     }
 
-    output.close();
-    return !output.fail();
+    try {
+        if (!byte_sort::detail::writeBytesToStream(data, size, output)) {
+            return false;
+        }
+
+        output.close();
+        return true;
+    } catch (const std::ios_base::failure&) {
+        return false;
+    }
 }
