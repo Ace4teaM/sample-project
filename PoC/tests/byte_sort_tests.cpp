@@ -1,4 +1,5 @@
 #include "byte_sort.h"
+#include "byte_sort_internal.h"
 
 #include <array>
 #include <cstdint>
@@ -7,6 +8,7 @@
 #include <functional>
 #include <iostream>
 #include <sstream>
+#include <streambuf>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -104,6 +106,71 @@ void testSaveBytesToFileCreatesExpectedContentAndOverwrites() {
     );
 }
 
+void testWriteBytesToStreamRejectsNullDataForNonEmptyInput() {
+    std::ostringstream output;
+    require(
+        !byte_sort::detail::writeBytesToStream(nullptr, 1, output),
+        "writeBytesToStream should reject null data when size is non-zero"
+    );
+}
+
+void testWriteBytesToStreamAllowsEmptyInput() {
+    std::ostringstream output;
+    require(
+        byte_sort::detail::writeBytesToStream(nullptr, 0, output),
+        "writeBytesToStream should allow empty input"
+    );
+    require(output.str().empty(), "empty input should not write anything");
+}
+
+void testWriteBytesToStreamWritesExpectedContent() {
+    std::ostringstream output;
+    const std::vector<std::uint8_t> bytes{3, 3, 17, 42, 128, 255};
+    require(
+        byte_sort::detail::writeBytesToStream(bytes.data(), bytes.size(), output),
+        "writeBytesToStream should succeed for a healthy stream"
+    );
+    require(
+        output.str() == "3\n3\n17\n42\n128\n255\n",
+        "writeBytesToStream should write one decimal value per line"
+    );
+}
+
+void testWriteBytesToStreamReportsFlushFailure() {
+    class FailingSyncBuffer final : public std::stringbuf {
+    public:
+        int sync() override {
+            return -1;
+        }
+    };
+
+    FailingSyncBuffer buffer;
+    std::ostream failingStream(&buffer);
+    const std::vector<std::uint8_t> bytes{1, 2, 3};
+    require(
+        !byte_sort::detail::writeBytesToStream(bytes.data(), bytes.size(), failingStream),
+        "writeBytesToStream should fail when stream finalization fails"
+    );
+}
+
+void testSaveBytesToFileReportsNullDataFailure() {
+    const auto tempDir = std::filesystem::temp_directory_path() / "byte_sort_tests_null";
+    std::filesystem::create_directories(tempDir);
+    require(
+        !saveBytesToFile(nullptr, 3, (tempDir / "null.txt").string()),
+        "saveBytesToFile should reject null data when size is non-zero"
+    );
+}
+
+void testSaveBytesToFileAllowsEmptyInput() {
+    const auto tempDir = std::filesystem::temp_directory_path() / "byte_sort_tests_empty";
+    std::filesystem::create_directories(tempDir);
+    require(
+        saveBytesToFile(nullptr, 0, (tempDir / "empty.txt").string()),
+        "saveBytesToFile should allow creating an empty file for empty input"
+    );
+}
+
 void testSaveBytesToFileFailureCases() {
     const auto tempDir = std::filesystem::temp_directory_path() / "byte_sort_tests_failure";
     std::filesystem::create_directories(tempDir);
@@ -114,28 +181,8 @@ void testSaveBytesToFileFailureCases() {
         "saveBytesToFile should reject an empty filename"
     );
     require(
-        !saveBytesToFile(nullptr, bytes.size(), (tempDir / "null.txt").string()),
-        "saveBytesToFile should reject null data when size is non-zero"
-    );
-    require(
         !saveBytesToFile(bytes.data(), bytes.size(), tempDir.string()),
         "saveBytesToFile should fail when the path is not a writable file"
-    );
-    require(
-        saveBytesToFile(nullptr, 0, (tempDir / "empty.txt").string()),
-        "saveBytesToFile should allow creating an empty file for empty input"
-    );
-}
-
-void testSaveBytesToFileReportsFlushFailure() {
-    if (!std::filesystem::exists("/dev/full")) {
-        return;
-    }
-
-    const std::vector<std::uint8_t> bytes{1, 2, 3};
-    require(
-        !saveBytesToFile(bytes.data(), bytes.size(), "/dev/full"),
-        "saveBytesToFile should fail when the stream cannot be finalized"
     );
 }
 
@@ -146,9 +193,14 @@ int main() {
         {"testSortUnsortedData", testSortUnsortedData},
         {"testSortEdgeCases", testSortEdgeCases},
         {"testSortKeepsSameAddressAndMutatesOriginalMemory", testSortKeepsSameAddressAndMutatesOriginalMemory},
+        {"testWriteBytesToStreamRejectsNullDataForNonEmptyInput", testWriteBytesToStreamRejectsNullDataForNonEmptyInput},
+        {"testWriteBytesToStreamAllowsEmptyInput", testWriteBytesToStreamAllowsEmptyInput},
+        {"testWriteBytesToStreamWritesExpectedContent", testWriteBytesToStreamWritesExpectedContent},
+        {"testWriteBytesToStreamReportsFlushFailure", testWriteBytesToStreamReportsFlushFailure},
         {"testSaveBytesToFileCreatesExpectedContentAndOverwrites", testSaveBytesToFileCreatesExpectedContentAndOverwrites},
+        {"testSaveBytesToFileReportsNullDataFailure", testSaveBytesToFileReportsNullDataFailure},
+        {"testSaveBytesToFileAllowsEmptyInput", testSaveBytesToFileAllowsEmptyInput},
         {"testSaveBytesToFileFailureCases", testSaveBytesToFileFailureCases},
-        {"testSaveBytesToFileReportsFlushFailure", testSaveBytesToFileReportsFlushFailure},
     };
 
     bool hasFailure = false;

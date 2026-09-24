@@ -23,6 +23,7 @@ add_executable(byte_sort_tests
 )
 
 target_link_libraries(byte_sort_tests PRIVATE byte_sort_lib)
+target_include_directories(byte_sort_tests PRIVATE src)
 
 enable_testing()
 add_test(NAME byte_sort_tests COMMAND byte_sort_tests)
