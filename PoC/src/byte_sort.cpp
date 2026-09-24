@@ -38,5 +38,11 @@ bool saveBytesToFile(
         }
     }
 
-    return true;
+    output.flush();
+    if (!output) {
+        return false;
+    }
+
+    output.close();
+    return !output.fail();
 }

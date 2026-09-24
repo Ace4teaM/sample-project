@@ -1,6 +1,7 @@
 #include "byte_sort.h"
 
 #include <cstdint>
+#include <system_error>
 #include <filesystem>
 #include <iostream>
 #include <vector>
@@ -37,7 +38,14 @@ int main() {
             : "Adresse mémoire modifiée")
               << '\n';
 
-    std::filesystem::create_directories("output");
+    std::error_code error;
+    std::filesystem::create_directories("output", error);
+    if (error) {
+        std::cout << "\nExport :\n";
+        std::cout << "Échec de la création du répertoire output : " << error.message() << '\n';
+        return 1;
+    }
+
     const std::string outputFile = "output/result.txt";
 
     std::cout << "\nExport :\n";

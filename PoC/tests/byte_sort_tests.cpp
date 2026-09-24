@@ -13,6 +13,11 @@
 
 namespace {
 
+struct TestCase {
+    std::string name;
+    std::function<void()> run;
+};
+
 void require(bool condition, const std::string& message) {
     if (!condition) {
         throw std::runtime_error(message);
@@ -122,21 +127,40 @@ void testSaveBytesToFileFailureCases() {
     );
 }
 
+void testSaveBytesToFileReportsFlushFailure() {
+    if (!std::filesystem::exists("/dev/full")) {
+        return;
+    }
+
+    const std::vector<std::uint8_t> bytes{1, 2, 3};
+    require(
+        !saveBytesToFile(bytes.data(), bytes.size(), "/dev/full"),
+        "saveBytesToFile should fail when the stream cannot be finalized"
+    );
+}
+
 }  // namespace
 
 int main() {
-    const std::vector<std::pair<std::string, std::function<void()>>> tests{
+    const std::vector<TestCase> tests{
         {"testSortUnsortedData", testSortUnsortedData},
         {"testSortEdgeCases", testSortEdgeCases},
         {"testSortKeepsSameAddressAndMutatesOriginalMemory", testSortKeepsSameAddressAndMutatesOriginalMemory},
         {"testSaveBytesToFileCreatesExpectedContentAndOverwrites", testSaveBytesToFileCreatesExpectedContentAndOverwrites},
         {"testSaveBytesToFileFailureCases", testSaveBytesToFileFailureCases},
+        {"testSaveBytesToFileReportsFlushFailure", testSaveBytesToFileReportsFlushFailure},
     };
 
-    for (const auto& [name, test] : tests) {
-        test();
-        std::cout << "[PASS] " << name << '\n';
+    bool hasFailure = false;
+    for (const auto& test : tests) {
+        try {
+            test.run();
+            std::cout << "[PASS] " << test.name << '\n';
+        } catch (const std::exception& exception) {
+            hasFailure = true;
+            std::cerr << "[FAIL] " << test.name << ": " << exception.what() << '\n';
+        }
     }
 
-    return 0;
+    return hasFailure ? 1 : 0;
 }
