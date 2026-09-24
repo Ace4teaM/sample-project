@@ -53,5 +53,5 @@ bool saveBytesToFile(
     }
 
     output.close();
-    return !output.fail();
+    return output.good();
 }
